@@ -1,0 +1,55 @@
+
+name: Deploy Credit Risk App to Hugging Face
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'credit_risk_model.onnx'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hugging Face Hub
+        run: pip install huggingface_hub
+
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+
+          api.upload_folder(
+              folder_path=".",
+              repo_id="zahrajou/credit-risk-prediction",
+              repo_type="space",
+              allow_patterns=[
+                  "index.html",
+                  "credit_risk_model.onnx"
+              ],
+              commit_message="Deploy from GitHub Actions"
+          )
+
+          print("Deployment completed successfully!")
+          PY
