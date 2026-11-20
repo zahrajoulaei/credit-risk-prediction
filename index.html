@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Risk Prediction</title>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 30px 16px;
+    font-family: Arial, sans-serif;
+    background: #f3f5f9;
+    color: #202938;
+}
+
+.container {
+    max-width: 850px;
+    margin: auto;
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.07);
+}
+
+h1 { color: #183153; margin-top: 0; }
+.description { color: #5d6878; line-height: 1.6; }
+
+.section {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e9f0;
+}
+
+.section h2 { font-size: 18px; color: #24466c; }
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+input {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #ccd3df;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+button {
+    margin-top: 28px;
+    width: 100%;
+    padding: 15px;
+    background: #2457a7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover { background: #183f80; }
+
+#status { margin-top: 18px; color: #596579; font-size: 14px; }
+
+#result {
+    display: none;
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 10px;
+    background: #eef4ff;
+}
+
+#probability {
+    font-size: 30px;
+    font-weight: bold;
+    color: #2457a7;
+}
+
+@media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .container { padding: 20px; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Credit Risk Prediction</h1>
+
+<p class="description">
+This educational application uses a trained Random Forest model
+to estimate the probability of credit card default.
+Enter the customer's financial information below.
+</p>
+
+<div class="section">
+<h2>1. Customer Information</h2>
+<div class="grid">
+<div><label>Credit Limit (LIMIT_BAL)</label><input id="LIMIT_BAL" type="number" value="50000"></div>
+<div><label>Sex (1=Male, 2=Female)</label><input id="SEX" type="number" value="2"></div>
+<div><label>Education (1-4)</label><input id="EDUCATION" type="number" value="2"></div>
+<div><label>Marriage (1-3)</label><input id="MARRIAGE" type="number" value="1"></div>
+<div><label>Age</label><input id="AGE" type="number" value="30"></div>
+</div>
+</div>
+
+<div class="section">
+<h2>2. Repayment Status</h2>
+<p class="description">Enter the repayment status codes for each month.</p>
+<div class="grid">
+<div><label>September (PAY_0)</label><input id="PAY_0" type="number" value="0"></div>
+<div><label>August (PAY_2)</label><input id="PAY_2" type="number" value="0"></div>
+<div><label>July (PAY_3)</label><input id="PAY_3" type="number" value="0"></div>
+<div><label>June (PAY_4)</label><input id="PAY_4" type="number" value="0"></div>
+<div><label>May (PAY_5)</label><input id="PAY_5" type="number" value="0"></div>
+<div><label>April (PAY_6)</label><input id="PAY_6" type="number" value="0"></div>
+</div>
+</div>
+
+<div class="section">
+<h2>3. Bill Amounts</h2>
+<div class="grid">
+<div><label>September (BILL_AMT1)</label><input id="BILL_AMT1" type="number" value="20000"></div>
+<div><label>August (BILL_AMT2)</label><input id="BILL_AMT2" type="number" value="18000"></div>
+<div><label>July (BILL_AMT3)</label><input id="BILL_AMT3" type="number" value="15000"></div>
+<div><label>June (BILL_AMT4)</label><input id="BILL_AMT4" type="number" value="12000"></div>
+<div><label>May (BILL_AMT5)</label><input id="BILL_AMT5" type="number" value="10000"></div>
+<div><label>April (BILL_AMT6)</label><input id="BILL_AMT6" type="number" value="8000"></div>
+</div>
+</div>
+
+<div class="section">
+<h2>4. Previous Payment Amounts</h2>
+<div class="grid">
+<div><label>September (PAY_AMT1)</label><input id="PAY_AMT1" type="number" value="2000"></div>
+<div><label>August (PAY_AMT2)</label><input id="PAY_AMT2" type="number" value="2000"></div>
+<div><label>July (PAY_AMT3)</label><input id="PAY_AMT3" type="number" value="2000"></div>
+<div><label>June (PAY_AMT4)</label><input id="PAY_AMT4" type="number" value="2000"></div>
+<div><label>May (PAY_AMT5)</label><input id="PAY_AMT5" type="number" value="2000"></div>
+<div><label>April (PAY_AMT6)</label><input id="PAY_AMT6" type="number" value="2000"></div>
+</div>
+</div>
+
+<button id="predictButton">Predict Credit Risk</button>
+
+<div id="status">Loading model...</div>
+
+<div id="result">
+<div>Estimated probability of default:</div>
+<div id="probability">--%</div>
+<p id="interpretation"></p>
+</div>
+
+</div>
+
+<script>
+const featureNames = [
+"LIMIT_BAL", "SEX", "EDUCATION", "MARRIAGE", "AGE",
+"PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6",
+"BILL_AMT1", "BILL_AMT2", "BILL_AMT3", "BILL_AMT4",
+"BILL_AMT5", "BILL_AMT6",
+"PAY_AMT1", "PAY_AMT2", "PAY_AMT3",
+"PAY_AMT4", "PAY_AMT5", "PAY_AMT6"
+];
+
+let session = null;
+
+async function loadModel() {
+    try {
+        session = await ort.InferenceSession.create("./credit_risk_model.onnx");
+        document.getElementById("status").textContent =
+            "Model loaded successfully. Ready to predict.";
+    } catch (error) {
+        document.getElementById("status").textContent =
+            "Could not load model: " + error.message;
+        console.error(error);
+    }
+}
+
+async function predict() {
+    if (!session) {
+        document.getElementById("status").textContent =
+            "The model is not ready yet.";
+        return;
+    }
+
+    try {
+        const values = featureNames.map(name => {
+            const value = document.getElementById(name).value;
+
+            if (value === "") {
+                throw new Error("Please fill in all 23 fields.");
+            }
+
+            const number = Number(value);
+
+            if (!Number.isFinite(number)) {
+                throw new Error("All inputs must be valid numbers.");
+            }
+
+            return number;
+        });
+
+        const inputTensor = new ort.Tensor(
+            "float32",
+            Float32Array.from(values),
+            [1, 23]
+        );
+
+        const outputs = await session.run({
+            [session.inputNames[0]]: inputTensor
+        });
+
+        const probabilities = outputs.probabilities.data;
+        const defaultProbability = probabilities[1] * 100;
+
+        document.getElementById("probability").textContent =
+            defaultProbability.toFixed(2) + "%";
+
+        document.getElementById("interpretation").textContent =
+            "This is an estimated probability, not a final lending decision.";
+
+        document.getElementById("result").style.display = "block";
+        document.getElementById("status").textContent =
+            "Prediction completed.";
+
+    } catch (error) {
+        document.getElementById("status").textContent = error.message;
+        console.error(error);
+    }
+}
+
+document.getElementById("predictButton").addEventListener("click", predict);
+loadModel();
+</script>
+
+</body>
+</html>
